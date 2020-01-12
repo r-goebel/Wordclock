@@ -7,6 +7,6 @@
  * [x] Trenner Zeichen
  * [ ] Trenner Lasern
  * [x] Folie Zeichnen
- * [ ] Folie plotten
+ * [x] Folie plotten
  * [ ] Code
  
