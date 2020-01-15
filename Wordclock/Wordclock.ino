@@ -1,35 +1,38 @@
 
-
 #include <Adafruit_NeoPixel.h>
 #ifdef __AVR__
  #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
+#include <ESP8266WiFi.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
+//Definition der Neopixel
 #define PixelPin D2
 int NumPixels = 144;
 
 Adafruit_NeoPixel strip(NumPixels, PixelPin, NEO_GRB + NEO_KHZ800);
 
+//WiFiSettings werden nach folgendem Schema definiert:
+const char *ssid     = "***";
+const char *password = "***";
 
-#include <ESP8266WiFi.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
-
-const char *ssid     = "*";
-const char *password = "*";
-
+//Setup für NTPclient (zum abfragen der Uhrzeit)
 int utcOffsetInSeconds = 3600;
 
 WiFiUDP ntpUDP;
 
 NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
+//Testmodus, um mehrere LED zu prüfen, oder ähnliches (1=an, 0=aus)
+bool testmodus = 0;
+
+//Definition des Grids/ der Worte auf der Uhr
 int es_ist[] = {0,1,3,4,5};
 
 int zusatz[][6]={{23, 22, 21, 20, 19, 18}, //gerade
                  {17, 16, 15, 14, 13, 12}, //gleich
-                 {30, 31, 32, 33, -1, -1}, //etwa
-                 {-1, -1, -1, -1, -1, -1}}; //kein zusatz
+                 {30, 31, 32, 33, -1, -1}}; //etwa
 
 int minute[][19] = {{48, 49, 50, 51, 53, 54, 55, 56, 57, 58, 59, 63, 62, 61, 60, -1, -1, -1, -1}, //fünf minuten nach
                     {39, 38, 37, 36, 53, 54, 55, 56, 57, 58, 59, 63, 62, 61, 60, -1, -1, -1, -1}, //zehn minute nach
@@ -42,7 +45,7 @@ int minute[][19] = {{48, 49, 50, 51, 53, 54, 55, 56, 57, 58, 59, 63, 62, 61, 60,
                     {71, 70, 69, 68, 67, 66, 65, 73, 74, 75, -1, -1, -1, -1, -1, -1, -1, -1, -1}, //viertel vor
                     {39, 38, 37, 36, 53, 54, 55, 56, 57, 58, 59, 73, 74, 75, -1, -1, -1, -1, -1}, //zehn minuten vor
                     {48, 49, 50, 51, 53, 54, 55, 56, 57, 58, 59, 73, 74, 75, -1, -1, -1, -1, -1}, //fünf minuten vor
-                    {24, 25, 25, 27, 28, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}}; //punkt
+                    {24, 25, 26, 27, 28, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}}; //punkt
                      
 int stunde[][6] = {{ 93,  92,  91,  90,  -1,  -1}, //eins
                    { 95,  94,  93,  92,  -1,  -1}, //zwei
@@ -57,14 +60,16 @@ int stunde[][6] = {{ 93,  92,  91,  90,  -1,  -1}, //eins
                    {141, 140, 139,  -1,  -1,  -1}, //elf
                    {136, 135, 134, 133, 132,  -1}}; //zwölf
 
-String time_string = "12:37"; // solte ergeben: es ist etwa fünf nach halb eins --> es_ist + zusatz[2][:] + minuten[6][:] + stunden[0][:]
-
-int Stunde, Minute_full, Minute, Minute_second, Zusatz, h, m, h_new, m_new;
+//Definition weiterer Variablen
+int Stunde, Minute_full, Minute, Minute_second, Zusatz,h_new, m_new;
+int h=0;
+int m=0;
 byte WheelPos;
 
 void setup() {
   Serial.begin(115200);
-  
+
+  //Wifi-Setup
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
@@ -72,112 +77,106 @@ void setup() {
     delay(500);
     Serial.println("Connecting..");
   }
-  
+
+  //NeoPixel-Setup
   strip.begin();
-  strip.setBrightness(10);
+  strip.setBrightness(50);
   strip.show();
 
+  //timeClient-Setup
   timeClient.begin();
   timeClient.update();
-
-  h = 0;
-  m = 0;
-
 }
 
 
 void loop() {
-  timeClient.update();
+  if (testmodus){
+    for (int i=10; i<=40; i++){
+      strip.setPixelColor(i, 255, 255, 255);
+    }
+  } 
+  else {
+
+    //Abfragen der Zeit:
+    timeClient.update();
+    int h_new = timeClient.getHours();
+    int m_new = timeClient.getMinutes();
   
-  int h_new = timeClient.getHours();
-  int m_new = timeClient.getMinutes();
+    //Ändern der Anzeige nur notwendig, wenn neue Zeit anders als alte
+    if(h_new != h || m_new != m) {
 
+      //Überschreiben der alten Werte
+      h = h_new;
+      m = m_new;
+      Stunde = h;
+      Minute_full = m;
+      Minute_second = m % 10;
 
-  if(h_new != h || m_new != m) {
+      //Umwandeln der Minute in das entsprechende Element der minute-Liste (da auf 5Minuten gerundet wird, ist dies notwendig)
+      Minute = convertMinute(Minute_full);
 
-    Serial.print(h);
-    Serial.println(m);
-
-    h = h_new;
-    m = m_new;
-    Stunde = h;
-    Minute_full = m;
-    Minute_second = m % 10;
+      //Zusatz bestimmen, in Abhängigkeit von der Minute wird gerade, gleich oder etwa hinzugefügt
+      Zusatz = determineZusatz(Minute_second, Minute_full);
     
-    Minute = convertMinute(Minute_full);
-  
-    Zusatz = determineZusatz(Minute_second, Minute_full);
-  
-    if (Stunde == 0){
-      Stunde = 12;
-    } else if (Stunde >12){
-      Stunde = Stunde - 12;
-    }
+      //Stunde in 12h-Format umwandeln
+      if (Stunde == 0){
+        Stunde = 12;
+      } else if (Stunde >12){
+        Stunde = Stunde - 12;
+      }
 
-    if (Minute >= 4) {
-      Stunde ++;
-    }
-  
-    //notwendige Pixel-Arrays kombinieren
-    // es_ist + zusatz + minute + stunde
-    int counter = 0;
-    WheelPos = random(0,255); 
-    strip.clear();
+      //Stunde entsprechend der Minute anpassen
+      if (Minute >= 4 && Minute < 11) {
+        Stunde ++;
+      }
     
-    for (int i=0; i<= 4; i++){
-      if (es_ist[i] > -1){
-        strip.setPixelColor(es_ist[i], Wheel(WheelPos));
-        Serial.print(es_ist[i]);
-        Serial.print(',');
-        counter ++;
-        WheelPos ++;
-        if (WheelPos >255){
-          WheelPos = 0;
+      //notwendige Pixel-einschalten, Farbe wird dabei zufällig gewählt und dann anhand dem Color-Weel geändert
+      // es_ist + zusatz + minute + stunde
+      WheelPos = random(0,255); 
+      strip.clear();
+      
+      for (int i=0; i<= 4; i++){
+        if (es_ist[i] > -1){
+          strip.setPixelColor(es_ist[i], Wheel(WheelPos));
+          WheelPos ++;
+          if (WheelPos >255){
+            WheelPos = 0;
+          }
         }
       }
-    }
-  
-    for (int i=0; i<= 5; i++){
-      if (zusatz[Zusatz][i] > -1) {
-        strip.setPixelColor(zusatz[Zusatz][i], Wheel(WheelPos));
-        Serial.print(zusatz[Zusatz][i]);
-        Serial.print(',');
-        counter ++;
-        WheelPos ++;
-        if (WheelPos >255){
-          WheelPos = 0;
+    
+      for (int i=0; i<= 5; i++){
+        if (zusatz[Zusatz][i] > -1) {
+          strip.setPixelColor(zusatz[Zusatz][i], Wheel(WheelPos));
+          WheelPos ++;
+          if (WheelPos >255){
+            WheelPos = 0;
+          }
         }
       }
-    }
-  
-    for (int i=0; i<=18; i++){
-      if (minute[Minute][i] > -1){
-        strip.setPixelColor(minute[Minute][i], Wheel(WheelPos));
-        Serial.print(minute[Minute][i]);
-        Serial.print(',');
-        WheelPos ++;
-        if (WheelPos >255){
-          WheelPos = 0;
-        }
-        counter ++;
-      }    
-    }
-  
-    for (int i=0; i<=5; i++){
-      if (stunde[(Stunde-1)][i] > -1){
-        strip.setPixelColor(stunde[(Stunde-1)][i], Wheel(WheelPos));
-        Serial.print(stunde[(Stunde-1)][i]);
-        Serial.println(';');
-        counter ++;
-        WheelPos ++;
-        if (WheelPos >255){
-          WheelPos = 0;
+    
+      for (int i=0; i<=18; i++){
+        if (minute[Minute][i] > -1){
+          strip.setPixelColor(minute[Minute][i], Wheel(WheelPos));
+           WheelPos ++;
+          if (WheelPos >255){
+            WheelPos = 0;
+          }
+        }    
+      }
+    
+      for (int i=0; i<=5; i++){
+        if (stunde[(Stunde-1)][i] > -1){
+          WheelPos ++;
+          if (WheelPos >255){
+            WheelPos = 0;
+          }
         }
       }
+    
     }
-  
-    strip.show();
   }
+  strip.show();
 }
 
 int convertMinute (int Minute_full){
