@@ -126,7 +126,7 @@ void loop() {
       }
 
       //Stunde entsprechend der Minute anpassen
-      if (Minute >= 4 && Minute < 11) {
+      if (Minute >= 4 && Minute < 11 || Minute == 11 && Zusatz == 1) {
         Stunde ++;
       }
     
