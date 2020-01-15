@@ -129,7 +129,7 @@ void loop() {
       if (Minute >= 4 && Minute < 11 || Minute == 11 && Zusatz == 1) {
         Stunde ++;
       }
-    
+      
       //notwendige Pixel-einschalten, Farbe wird dabei zufällig gewählt und dann anhand dem Color-Weel geändert
       // es_ist + zusatz + minute + stunde
       WheelPos = random(0,255); 
@@ -167,6 +167,7 @@ void loop() {
     
       for (int i=0; i<=5; i++){
         if (stunde[(Stunde-1)][i] > -1){
+          strip.setPixelColor(stunde[(Stunde-1)][i], Wheel(WheelPos));
           WheelPos ++;
           if (WheelPos >255){
             WheelPos = 0;
