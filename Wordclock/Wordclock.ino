@@ -14,7 +14,7 @@ int NumPixels = 144;
 Adafruit_NeoPixel strip(NumPixels, PixelPin, NEO_GRB + NEO_KHZ800);
 
 //WiFiSettings werden nach folgendem Schema definiert:
-const char *ssid     = "***";
+const char *ssid    = "***";
 const char *password = "***";
 
 //Setup für NTPclient (zum abfragen der Uhrzeit)
@@ -118,16 +118,16 @@ void loop() {
       //Zusatz bestimmen, in Abhängigkeit von der Minute wird gerade, gleich oder etwa hinzugefügt
       Zusatz = determineZusatz(Minute_second, Minute_full);
     
+      //Stunde entsprechend der Minute anpassen
+      if (Minute >= 4 && Minute < 11 || Minute == 11 && Zusatz == 1) {
+        Stunde ++;
+      }
+
       //Stunde in 12h-Format umwandeln
       if (Stunde == 0){
         Stunde = 12;
       } else if (Stunde >12){
         Stunde = Stunde - 12;
-      }
-
-      //Stunde entsprechend der Minute anpassen
-      if (Minute >= 4 && Minute < 11 || Minute == 11 && Zusatz == 1) {
-        Stunde ++;
       }
       
       //notwendige Pixel-einschalten, Farbe wird dabei zufällig gewählt und dann anhand dem Color-Weel geändert
