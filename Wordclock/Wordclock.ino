@@ -15,8 +15,8 @@ int MaxBrightness = 150;
 Adafruit_NeoPixel strip(NumPixels, PixelPin, NEO_GRB + NEO_KHZ800);
 
 //WiFiSettings werden nach folgendem Schema definiert:
-const char *ssid    = "CTDO-LEGACY";
-const char *password = "ctdo2342";
+const char *ssid    = "***";
+const char *password = "***";
 
 //Setup für NTPclient (zum abfragen der Uhrzeit)
 int utcOffsetInSeconds = 3600;
@@ -150,10 +150,12 @@ void UpdateTime(){
       }
       for (i=0; i<6; i++){   
         setPixels(colorStr,zusatz[CurrentCase[0]][i]);
-        setPixels(colorStr,stunde[CurrentCase[2]][i]);
       }
       for (i=0; i<19; i++){
         setPixels(colorStr,minute[CurrentCase[1]][i]);
+      }
+      for (i=0; i<6; i++){   
+        setPixels(colorStr,stunde[CurrentCase[2]][i]);
       }
       
       //anzeigen
@@ -166,6 +168,9 @@ void getCurrentCase(int h, int m){
 
   //CurrentCase[1] Minute Bestimmen (teilen durch 5 und runden auf ganze Zahl bildet den Eintrag in minuten
     CurrentCase[1] = m/5;
+    if (m%5 > 2){
+      CurrentCase[1] = CurrentCase[1] + 1;
+    }
     if (CurrentCase[1] >= 12){
       CurrentCase[1] = 0;
     }  
