@@ -178,7 +178,7 @@ void getCurrentCase(int h, int m){
   //CurrentCase[2] Stunde bestimmen in Abhängigkeit von Minute
     CurrentCase[2] = h-1;
     //ab Minute 28 bis Minute 60 
-    if (m >= 28 && m <= 60){
+    if (m >= 23 && m <= 60){
       CurrentCase[2] = h;
     }
 
