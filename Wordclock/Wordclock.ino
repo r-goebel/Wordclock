@@ -65,7 +65,7 @@ int h_new, m_new, Stunde, Minute;
 
 int CurrentCase[]={0,0,0};
 
-byte WheelPos;
+byte WheelPos = random(0,255);
 String colorStr = "rainbow";
 uint32_t color = strip.Color(255,150,0);
 uint32_t colorSet;
@@ -144,6 +144,7 @@ void UpdateTime(){
 
       //Umstellen der Anzeige entsprechend dem Case
       strip.clear();
+
       for (i=0; i<5; i++){
         setPixels(colorStr,es_ist[i]);  
       }
