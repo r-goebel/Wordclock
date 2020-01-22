@@ -3,7 +3,6 @@
 #ifdef __AVR__
  #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
-#include <ESP8266WiFi.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 
@@ -14,9 +13,9 @@ int MaxBrightness = 150;
 
 Adafruit_NeoPixel strip(NumPixels, PixelPin, NEO_GRB + NEO_KHZ800);
 
-//WiFiSettings werden nach folgendem Schema definiert:
-const char *ssid    = "***";
-const char *password = "***";
+//Definitionen für Homie
+#include <Homie.h>
+HomieNode clockNode("wordclock", "wordclock", "clock");
 
 //Setup für NTPclient (zum abfragen der Uhrzeit)
 int utcOffsetInSeconds = 3600;
@@ -74,18 +73,17 @@ int i;
 
 bool testmodus = 0; //Testmodus, um mehrere LED zu prüfen, oder ähnliches (1=an, 0=aus)
 bool OnOff = 1;     //zum ein und ausschalten später mit Homie
+bool Change = 0;    //Um Anzeige zu ändern, falls nur die Farbe geändert wurde oder neu eingeschalter wurde
 
 void setup() {
   Serial.begin(115200);
 
-  //Wifi-Setup
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.println("Connecting..");
-  }
+  //Homie-Setup
+  Homie_setFirmware("jeweljar", "1.0.0");
+  clockNode.advertise("OnOff").settable(OnOffHandler);
+  clockNode.advertise("brightness").settable(brightnessHandler);
+  clockNode.advertise("color").settable(colorHandler);
+  Homie.setup();
 
   //NeoPixel-Setup
   strip.begin();
@@ -99,6 +97,8 @@ void setup() {
 
 
 void loop() {
+
+  Homie.loop();
   
   //Wenn testmodus eingeschaltet, dann zeige einfach 40 Pixel in weiß an
   if (testmodus){
@@ -115,7 +115,59 @@ void loop() {
 
 }
 
+//Funktionen für Homie*****************************************************
+bool OnOffHandler (const HomieRange& range, const String& value) {
 
+  if (value == "false"){
+    OnOff = 0;
+    strip.clear();
+    strip.show();
+  } 
+  else {
+    OnOff = 1;
+    Change = 1;
+  }
+
+  clockNode.setProperty("OnOff").send(value);
+
+}
+
+bool brightnessHandler (const HomieRange& range, const String& value) {
+  long brightness = value.toInt();
+  setBrightness(brightness);
+  clockNode.setProperty("brightness").send(value);
+}
+
+void setBrightness(long brightness){
+  if (brightness >= 0 && brightness <= MaxBrightness){
+    strip.setBrightness(brightness);
+    strip.show();
+  }  
+}
+
+bool colorHandler (const HomieRange& range, const String& value) {
+    colorStr = value;
+
+    if (value != "rainbow"){
+      
+      long number = strtol(&colorStr[0],NULL,16);
+      
+      // Split them up into r, g, b values
+      long r = number >> 16;
+      long g = number >> 8 & 0xFF;
+      long b = number & 0xFF;
+
+      color = strip.Color(r,g,b);
+    }
+    
+    Change = 1;
+    clockNode.setProperty("color").send(value);
+}
+
+
+
+
+//Funktionen für Uhr*****************************************************
 void UpdateTime(){
     //Abfragen der aktuellen Zeit:
     timeClient.update();
@@ -123,7 +175,7 @@ void UpdateTime(){
     int m_new = timeClient.getMinutes();
   
     //Ändern der Anzeige nur notwendig, wenn neue Zeit anders als alte
-    if(h_new != Stunde || m_new != Minute) {
+    if(h_new != Stunde || m_new != Minute || Change) {
 
       //Überschreiben der alten Werte
       h = h_new;
@@ -160,7 +212,7 @@ void UpdateTime(){
       
       //anzeigen
       strip.show();   
-      Serial.println("new time"); 
+      Change = 0;
     }
 }
 
