@@ -1,3 +1,5 @@
+//Board: Wemos D1 R2 & mini
+//Upload speed:115200
 
 #include <Adafruit_NeoPixel.h>
 #ifdef __AVR__
